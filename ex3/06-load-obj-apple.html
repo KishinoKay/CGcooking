@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Example 08.05 - Load blender model </title>
+    <script type="text/javascript" src="../libs/three.js"></script>
+    <script type="text/javascript" src="../libs/stats.js"></script>
+    <script type="text/javascript" src="../libs/dat.gui.js"></script>
+
+    <script type="text/javascript" src="../libs/loaders/OBJLoader.js"></script> <!-- OBJ用のローダー -->
+    <script type="text/javascript" src="../libs/loaders/MTLLoader.js"></script> <!-- MTL用のローダー -->
+    <!--script src="https://unpkg.com/three@0.147.0/examples/js/loaders/OBJLoader.js"></script-->
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<div id="Stats-output">
+</div>
+<div id="WebGL-output">
+</div>
+
+<script type="text/javascript">
+
+    function init() {
+        //レンダリング処理及び諸々の設定
+        var stats = initStats();
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        var webGLRenderer = new THREE.WebGLRenderer();
+        webGLRenderer.setClearColor(new THREE.Color(0xEEEEEE));
+        webGLRenderer.setSize(window.innerWidth, window.innerHeight);
+        webGLRenderer.shadowMap.enabled = true;
+        document.getElementById("WebGL-output").appendChild(webGLRenderer.domElement);
+
+        //カメラの初期設定
+        camera.position.set(0, 40, 100);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        //照明の初期設定
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(0, 100, 300);
+        spotLight.intensity = 1;
+        scene.add(spotLight);
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(0, 100, -300);
+        spotLight.intensity = 1;
+        scene.add(spotLight);
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(100, 150, 0);
+        spotLight.intensity = 1;
+        scene.add(spotLight);
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(-100, 150, 0);
+        spotLight.intensity = 1;
+        scene.add(spotLight);
+
+        //カメラの操作に関する設定
+        var keys = {}; // 押されたキーを記録するオブジェクト
+        var isX_Pressed = false; // xキーの押下状態を記録
+
+        // キーボード入力を監視
+        document.addEventListener('keydown', function (event) {
+            keys[event.key.toLowerCase()] = true;
+            if (event.key === 'x') {
+                isX_Pressed = true;
+            }
+        });
+
+        document.addEventListener('keyup', function (event) {
+            keys[event.key.toLowerCase()] = false;
+            if (event.key === 'x') {
+                isX_Pressed = false;
+            }
+        });
+
+        // マウス感度と角度
+        var sensitivity = 0.002; // マウス感度
+        // 初期向き計算
+        var initialTarget = new THREE.Vector3(0, 0, 0).sub(camera.position).normalize();
+        var yaw = Math.atan2(initialTarget.x, initialTarget.z); // 初期yaw計算
+        var pitch = Math.asin(initialTarget.y); // 初期pitch計算
+
+        // マウス移動監視
+        document.addEventListener('mousemove', function (event) {
+            if (isX_Pressed) return; // xキーが押されている間は無効化
+            yaw -= event.movementX * sensitivity; // マウスの横移動でカメラの横回転
+            pitch -= event.movementY * sensitivity; // マウスの縦移動でカメラの縦回転
+
+            // ピッチの角度を制限 (-90度～90度)
+            pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+
+            // カメラの向きを更新
+            var target = new THREE.Vector3(
+                Math.cos(pitch) * Math.sin(yaw),
+                Math.sin(pitch),
+                Math.cos(pitch) * Math.cos(yaw)
+            );
+            camera.lookAt(camera.position.clone().add(target));
+        });
+
+        //カメラ移動関数
+        function moveCamera() {
+            var moveSpeed = 1; // 移動速度
+            var direction = new THREE.Vector3(); // カメラの向きを格納するベクトル
+
+            // カメラの向き
+            if (keys['w']) {
+                camera.getWorldDirection(direction); // カメラの向きを取得
+                direction.y = 0;
+                camera.position.addScaledVector(direction, moveSpeed); // 向きに基づいて移動
+            }
+            //カメラの後ろ方向
+            if (keys['s']) {
+                camera.getWorldDirection(direction);
+                direction.y = 0;
+                camera.position.addScaledVector(direction, -moveSpeed); // 逆方向に移動
+
+            }
+            //カメラの右方向
+            if (keys['a']) {
+                camera.getWorldDirection(direction);
+                var left = new THREE.Vector3().crossVectors(camera.up, direction).normalize(); // 左方向ベクトル
+                direction.y = 0;
+                camera.position.addScaledVector(left, moveSpeed);
+            }
+            //カメラの左方向
+            if (keys['d']) {
+                camera.getWorldDirection(direction);
+                var right = new THREE.Vector3().crossVectors(direction, camera.up).normalize(); // 右方向ベクトル
+                direction.y = 0;
+                camera.position.addScaledVector(right, moveSpeed);
+            }
+            //// カメラロック（PointerLock API）
+            if (keys['l']) {
+                document.body.requestPointerLock();
+            }
+        }
+
+        //CGオブジェクトの設定
+        //鍋オブジェクトのグループを作成
+        var nabe_group = new THREE.Group();
+
+        var nabe_mesh; //読み込んだオブジェクトを格納する変数
+        var nabe_x = 60;//鍋の位置
+        var nabe_y = 0;
+        var nabe_z = -40;
+	    var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
+        mtlLoader.setPath("nabe/");	// MTLファイルへのパスを設定
+	    // MTLファイルの読み込み
+        mtlLoader.load('nabe.mtl', function(materials) {
+            materials.preload();
+            var objLoader = new THREE.OBJLoader();	// OBJローダの定義
+            objLoader.setMaterials(materials);		// OBJローダにマテリアルを代入
+            objLoader.setPath("nabe/");		// OBJファイルへのパスを設定
+            //OBJファイルの読み込み
+            objLoader.load('nabe.obj', function(object) {
+                object.scale.set(30, 30, 30);	// スケール変更
+                object.position.set(nabe_x, nabe_y, nabe_z);
+                nabe_mesh = object;          //変数に読み込んだオブジェクトを格納
+                nabe_group.add(nabe_mesh);		// グループに追加
+            });
+        });
+
+        var contents_mesh1, contents_mesh2, contents_mesh3, contents_mesh4; // 読み込んだオブジェクトを格納する変数
+        var mtlLoader = new THREE.MTLLoader(); // MTLローダの定義
+        mtlLoader.setPath("nabe_contents/"); // MTLファイルへのパスを設定
+
+        // MTLファイルの読み込み
+        mtlLoader.load('nabe_contents.mtl', function (materials) {
+            materials.preload();
+            var objLoader = new THREE.OBJLoader(); // OBJローダの定義
+            objLoader.setMaterials(materials); // OBJローダにマテリアルを代入
+            objLoader.setPath("nabe_contents/"); // OBJファイルへのパスを設定
+
+            // OBJファイルの読み込み
+            objLoader.load('nabe_contents.obj', function (object) {
+                // 基本オブジェクトを複製可能な形で準備
+                object.scale.set(4, 4, 4); // スケール変更
+                object.position.set(nabe_x, nabe_y, nabe_z);
+
+                // オブジェクトを複製して個別に設定
+                contents_mesh1 = object.clone(); // 複製
+                nabe_group.add(contents_mesh1); // グループに追加
+
+                contents_mesh2 = object.clone(); // 複製
+                contents_mesh2.rotation.y += Math.PI / 4;
+                nabe_group.add(contents_mesh2); // グループに追加
+
+                contents_mesh3 = object.clone(); // 複製
+                contents_mesh3.rotation.y += Math.PI / 2;
+                nabe_group.add(contents_mesh3); // グループに追加
+
+                contents_mesh4 = object.clone(); // 複製
+                contents_mesh4.rotation.y += (3 * Math.PI) / 4;
+                nabe_group.add(contents_mesh4); // グループに追加
+            });
+        });
+        
+        scene.add(nabe_group);
+
+        var knife_mesh; //読み込んだオブジェクトを格納する変数
+        var knife_x = 50;//ナイフの位置
+        var knife_y = -40;
+        var knife_z = -20;
+	    var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
+        mtlLoader.setPath("knife/");	// MTLファイルへのパスを設定
+	    // MTLファイルの読み込み
+        mtlLoader.load('knife.mtl', function(materials) {
+            materials.preload();
+            var objLoader = new THREE.OBJLoader();	// OBJローダの定義
+            objLoader.setMaterials(materials);		// OBJローダにマテリアルを代入
+            objLoader.setPath("knife/");		// OBJファイルへのパスを設定
+            //OBJファイルの読み込み
+            objLoader.load('knife.obj', function(object) {
+                object.scale.set(5, 5, 5);	// スケール変更
+                object.position.set(knife_x, knife_y+40, knife_z+100);
+                knife_mesh = object;          //変数に読み込んだオブジェクトを格納
+                scene.add(knife_mesh);		// グループに追加
+            });
+        });
+
+        // ここで制御変数を定義
+        var controls = new function(){
+            this.boiling = 0.001;
+        }
+
+        //GUI
+        var gui = new dat.GUI();//dat.GUIオブジェクトの作成
+
+        var nabeFolder = gui.addFolder("nabe"); //sphereというフォルダを作成
+        //nabeフォルダ内に0~1の間で変数eの値を変更する
+        nabeFolder.add(controls, "boiling", 0.000, 0.050);
+
+        //操作用変数
+        var step = 0;
+        renderScene();
+        function renderScene() {
+            stats.update();
+            moveCamera(); // 毎フレーム、カメラを移動
+
+            // ナイフをカメラの前に配置
+            if (knife_mesh) {
+                var cameraDirection = new THREE.Vector3();
+                camera.getWorldDirection(cameraDirection); // カメラの向きを取得
+
+                // カメラの右方向を計算
+                var cameraRight = new THREE.Vector3();
+                cameraRight.crossVectors(cameraDirection, camera.up).normalize();
+
+                // ナイフの位置をカメラの前方に設定
+                knife_mesh.position.copy(camera.position)
+                .add(cameraDirection.clone().multiplyScalar(40))//カメラの前方に移動
+                .add(cameraRight.clone().multiplyScalar(40));//カメラの右方向
+
+                // ナイフの高さを調整
+                knife_mesh.position.y -= 20;
+
+                // ナイフの向きをカメラの向きと一致させる
+                knife_mesh.rotation.copy(camera.rotation);
+            }
+
+
+            //沸騰
+            if (contents_mesh1) {
+                step += controls.boiling;
+                contents_mesh1.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
+            }
+            if (contents_mesh2) {
+                step += controls.boiling;
+                contents_mesh2.position.y = 2 + ( 10 * Math.abs(Math.sin(step + Math.PI / 4)));
+            }
+            if (contents_mesh3) {
+                step += controls.boiling;
+                contents_mesh3.position.y = 2 + ( 10 * Math.abs(Math.sin(step + Math.PI / 2)));
+            }
+            if (contents_mesh4) {
+                step += controls.boiling;
+                contents_mesh4.position.y = 2 + ( 10 * Math.abs(Math.sin(step + (3 * Math.PI) / 4)));
+            }
+            requestAnimationFrame(renderScene);
+            webGLRenderer.render(scene, camera);
+        }
+
+        function initStats() {
+
+            var stats = new Stats();
+            stats.setMode(0); // 0: fps, 1: ms
+
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+
+            document.getElementById("Stats-output").appendChild(stats.domElement);
+
+            return stats;
+        }
+    }
+    window.onload = init;
+</script>
+</body>
+</html>
