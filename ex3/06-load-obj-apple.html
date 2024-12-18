@@ -193,7 +193,6 @@
         });
 
         var contents_mesh1, contents_mesh2, contents_mesh3, contents_mesh4; // 読み込んだオブジェクトを格納する変数
-        var mtlLoader = new THREE.MTLLoader(); // MTLローダの定義
         mtlLoader.setPath("nabe_contents/"); // MTLファイルへのパスを設定
 
         // MTLファイルの読み込み
@@ -233,7 +232,6 @@
         var knife_x = 50;//ナイフの位置
         var knife_y = -40;
         var knife_z = -20;
-	    var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
         mtlLoader.setPath("knife/");	// MTLファイルへのパスを設定
 	    // MTLファイルの読み込み
         mtlLoader.load('knife.mtl', function(materials) {
@@ -254,7 +252,6 @@
         var board_x = -50;//まな板の位置
         var board_y = -10;
         var board_z = 50;
-	    var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
         mtlLoader.setPath("board/");	// MTLファイルへのパスを設定
 	    // MTLファイルの読み込み
         mtlLoader.load('board.mtl', function(materials) {
@@ -272,7 +269,6 @@
         });
 
         var kyabetu_mesh; //読み込んだオブジェクトを格納する変数
-	    var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
         mtlLoader.setPath("kyabetu/");	// MTLファイルへのパスを設定
 	    // MTLファイルの読み込み
         mtlLoader.load('kyabetu1.mtl', function(materials) {
@@ -283,38 +279,43 @@
             //OBJファイルの読み込み
             objLoader.load('kyabetu1.obj', function(object) {
                 object.scale.set(10, 10, 10);	// スケール変更
-                object.position.set(board_x, board_y-5, board_z);
+                object.position.set(board_x, board_y+5, board_z);
                 kyabetu_mesh = object;          //変数に読み込んだオブジェクトを格納
                 scene.add(kyabetu_mesh);		// グループに追加
             });
         });
 
         var kyabetu_mesh2; //読み込んだオブジェクトを格納する変数
-        var kyabetu_clones = []; // クローン管理用の配列
-        var mtlLoader = new THREE.MTLLoader();	// MTLローダの定義
-        mtlLoader.setPath("kyabetu/");	// MTLファイルへのパスを設定
-        document.addEventListener("mousedown", function(event){
-            if(event.button === 0) {
-                // MTLファイルの読み込み
-                mtlLoader.load('kyabetu2.mtl', function(materials) {
-                    materials.preload();
-                    var objLoader = new THREE.OBJLoader();	// OBJローダの定義
-                    objLoader.setMaterials(materials);		// OBJローダにマテリアルを代入
-                    objLoader.setPath("kyabetu/");		// OBJファイルへのパスを設定
-                    //OBJファイルの読み込み
-                    objLoader.load('kyabetu2.obj', function(object) {
-                        object.scale.set(10, 10, 10);	// スケール変更
-                        object.position.set(board_x, board_y-5, board_z);
-                        // クローンを作成
-                        var clone = kyabetu_mesh2.clone();
-                        kyabetu_clones.push(clone); 
-                        scene.add(clone);         //変数に読み込んだオブジェクトを格納
-                    });
+        // MTLファイルの読み込み
+        mtlLoader.load('kyabetu2.mtl', function(materials) {
+            materials.preload();
+            var objLoader = new THREE.OBJLoader();	// OBJローダの定義
+            objLoader.setMaterials(materials);		// OBJローダにマテリアルを代入
+            objLoader.setPath("kyabetu/");		// OBJファイルへのパスを設定
+            //OBJファイルの読み込み
+            objLoader.load('kyabetu2.obj', function(object) {
+                object.scale.set(0, 0, 0);	// スケール変更
+                object.position.set(board_x, board_y+5, board_z-15);
+                kyabetu_mesh2 = object;
+                scene.add(kyabetu_mesh2);
+            });
+        });
 
-                    //ここに動かすコード書く予定
-                });
-            }
-        })
+        var kyabetu_mesh3; //読み込んだオブジェクトを格納する変数
+        // MTLファイルの読み込み
+        mtlLoader.load('kyabetu3.mtl', function(materials) {
+            materials.preload();
+            var objLoader = new THREE.OBJLoader();	// OBJローダの定義
+            objLoader.setMaterials(materials);		// OBJローダにマテリアルを代入
+            objLoader.setPath("kyabetu/");		// OBJファイルへのパスを設定
+            //OBJファイルの読み込み
+            objLoader.load('kyabetu3.obj', function(object) {
+                object.scale.set(10, 10, 10);	// スケール変更
+                object.position.set(1000, 0, 50);
+                kyabetu_mesh3 = object;
+                scene.add(kyabetu_mesh3);
+            });
+        });
 
         // ここで制御変数を定義
         var controls = new function(){
@@ -330,12 +331,32 @@
 
         //操作用変数
         var step = 0;
+        const thresholdDistance = 30;
         renderScene();
         function renderScene() {
             stats.update();
             moveCamera(); // カメラを移動
             moveKnife();// ナイフを移動
 
+            //千切り
+            if (knife_mesh && kyabetu_mesh) {
+                const distance = knife_mesh.position.distanceTo(kyabetu_mesh.position);
+                if(distance <= thresholdDistance){
+                    if (keys['e']) {
+                        kyabetu_mesh2.scale.x += 0.05;
+                        kyabetu_mesh2.scale.y += 0.1;
+                        kyabetu_mesh2.scale.z += 0.05;
+                        kyabetu_mesh3.scale.x += 0.2;
+                        kyabetu_mesh3.scale.y += 0.2;
+                        kyabetu_mesh3.scale.z += 0.2;
+                        if(kyabetu_mesh2.scale.y > 25){
+                            kyabetu_mesh2.scale.x = 0;
+                            kyabetu_mesh2.scale.y = 0;
+                            kyabetu_mesh2.scale.z = 0;
+                        }
+                    }
+                }
+            }
 
             //沸騰
             if (contents_mesh1) {
