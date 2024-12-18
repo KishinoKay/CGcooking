@@ -43,21 +43,13 @@
         camera.position.set(0, 40, 100);
         camera.lookAt(new THREE.Vector3(0, 0, 0));
 
+        //環境光の初期設定
+        var spotLight = new THREE.AmbientLight(0xffffff);
+        spotLight.intensity = 0.5;
+        scene.add(spotLight);
         //照明の初期設定
         var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(0, 100, 300);
-        spotLight.intensity = 1;
-        scene.add(spotLight);
-        var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(0, 100, -300);
-        spotLight.intensity = 1;
-        scene.add(spotLight);
-        var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(100, 150, 0);
-        spotLight.intensity = 1;
-        scene.add(spotLight);
-        var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(-100, 150, 0);
+        spotLight.position.set(0, 100, 0);
         spotLight.intensity = 1;
         scene.add(spotLight);
 
