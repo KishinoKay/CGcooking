@@ -157,7 +157,7 @@
                 // ナイフの位置をカメラの前方に設定
                 knife_mesh.position.copy(camera.position)
                 .add(cameraDirection.clone().multiplyScalar(40))//カメラの前方に移動
-                .add(cameraRight.clone().multiplyScalar(40));//カメラの右方向
+                .add(cameraRight.clone().multiplyScalar(10));//カメラの右方向
 
                 // ナイフの高さを調整
                 knife_mesh.position.y -= 20;
@@ -310,7 +310,7 @@
             objLoader.setPath("kyabetu/");		// OBJファイルへのパスを設定
             //OBJファイルの読み込み
             objLoader.load('kyabetu3.obj', function(object) {
-                object.scale.set(10, 10, 10);	// スケール変更
+                object.scale.set(0, 0, 0);	// スケール変更
                 object.position.set(1000, 0, 50);
                 kyabetu_mesh3 = object;
                 scene.add(kyabetu_mesh3);
@@ -331,7 +331,7 @@
 
         //操作用変数
         var step = 0;
-        const thresholdDistance = 30;
+        const thresholdDistance = 50;
         renderScene();
         function renderScene() {
             stats.update();
