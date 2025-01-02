@@ -74,7 +74,7 @@
 
         // マウス感度と角度
         var sensitivity = 0.002; // マウス感度
-        // 初期向き計算
+        // 原点とカメラの現在位置から初期の向きを計算する
         var initialTarget = new THREE.Vector3(0, 0, 0).sub(camera.position).normalize();
         var yaw = Math.atan2(initialTarget.x, initialTarget.z); // 初期yaw計算
         var pitch = Math.asin(initialTarget.y); // 初期pitch計算
@@ -99,20 +99,18 @@
 
         //カメラ移動制御
         function moveCamera() {
-            var moveSpeed = 1; // 移動速度
             var direction = new THREE.Vector3(); // カメラの向きを格納するベクトル
-
             // カメラの向き
             if (keys['w']) {
                 camera.getWorldDirection(direction); // カメラの向きを取得
                 direction.y = 0;
-                camera.position.addScaledVector(direction, moveSpeed); // 向きに基づいて移動
+                camera.position.addScaledVector(direction, controls.moveSpeed); // 向きに基づいて移動
             }
             //カメラの後ろ方向
             if (keys['s']) {
                 camera.getWorldDirection(direction);
                 direction.y = 0;
-                camera.position.addScaledVector(direction, -moveSpeed); // 逆方向に移動
+                camera.position.addScaledVector(direction, -controls.moveSpeed); // 逆方向に移動
 
             }
             //カメラの右方向
@@ -120,16 +118,16 @@
                 camera.getWorldDirection(direction);
                 var left = new THREE.Vector3().crossVectors(camera.up, direction).normalize(); // 左方向ベクトル
                 direction.y = 0;
-                camera.position.addScaledVector(left, moveSpeed);
+                camera.position.addScaledVector(left, controls.moveSpeed);
             }
             //カメラの左方向
             if (keys['d']) {
                 camera.getWorldDirection(direction);
                 var right = new THREE.Vector3().crossVectors(direction, camera.up).normalize(); // 右方向ベクトル
                 direction.y = 0;
-                camera.position.addScaledVector(right, moveSpeed);
+                camera.position.addScaledVector(right, controls.moveSpeed);
             }
-            //// カメラロック（PointerLock API）
+            //// カメラロック
             if (keys['l']) {
                 document.body.requestPointerLock();
             }
@@ -139,20 +137,22 @@
         function moveKnife(){
             // ナイフをカメラの前に配置
             if (knife_mesh) {
-                var cameraDirection = new THREE.Vector3();
-                camera.getWorldDirection(cameraDirection); // カメラの向きを取得
+                var direction = new THREE.Vector3();
+                camera.getWorldDirection(direction); // カメラの向きを取得
 
                 // カメラの右方向を計算
-                var cameraRight = new THREE.Vector3();
-                cameraRight.crossVectors(cameraDirection, camera.up).normalize();
+                var right = new THREE.Vector3();
+                right.crossVectors(direction, camera.up).normalize();
 
                 // ナイフの位置をカメラの前方に設定
                 knife_mesh.position.copy(camera.position)
-                .add(cameraDirection.clone().multiplyScalar(40))//カメラの前方に移動
-                .add(cameraRight.clone().multiplyScalar(10));//カメラの右方向
+                .add(direction.clone().multiplyScalar(40))//カメラの前方に移動
+                .add(right.clone().multiplyScalar(10));//カメラの右方向
 
                 // ナイフの高さを調整
-                knife_mesh.position.y -= 20;
+                if (!keys['e']) {
+                    knife_mesh.position.y -= 20;
+                }
 
                 // ナイフの向きをカメラの向きと一致させる
                 knife_mesh.rotation.copy(camera.rotation);
@@ -163,6 +163,7 @@
         //鍋オブジェクトのグループを作成
         var nabe_group = new THREE.Group();
 
+        //鍋
         var nabe_mesh; //読み込んだオブジェクトを格納する変数
         var nabe_x = 60;//鍋の位置
         var nabe_y = 0;
@@ -184,16 +185,15 @@
             });
         });
 
+        //鍋の具材
         var contents_mesh1, contents_mesh2, contents_mesh3, contents_mesh4; // 読み込んだオブジェクトを格納する変数
         mtlLoader.setPath("nabe_contents/"); // MTLファイルへのパスを設定
-
         // MTLファイルの読み込み
         mtlLoader.load('nabe_contents.mtl', function (materials) {
             materials.preload();
             var objLoader = new THREE.OBJLoader(); // OBJローダの定義
             objLoader.setMaterials(materials); // OBJローダにマテリアルを代入
             objLoader.setPath("nabe_contents/"); // OBJファイルへのパスを設定
-
             // OBJファイルの読み込み
             objLoader.load('nabe_contents.obj', function (object) {
                 // 基本オブジェクトを複製可能な形で準備
@@ -204,26 +204,23 @@
                 contents_mesh1 = object.clone(); // 複製
                 nabe_group.add(contents_mesh1); // グループに追加
 
-                contents_mesh2 = object.clone(); // 複製
+                contents_mesh2 = object.clone();
                 contents_mesh2.rotation.y += Math.PI / 4;
-                nabe_group.add(contents_mesh2); // グループに追加
+                nabe_group.add(contents_mesh2);
 
-                contents_mesh3 = object.clone(); // 複製
+                contents_mesh3 = object.clone();
                 contents_mesh3.rotation.y += Math.PI / 2;
-                nabe_group.add(contents_mesh3); // グループに追加
+                nabe_group.add(contents_mesh3);
 
-                contents_mesh4 = object.clone(); // 複製
+                contents_mesh4 = object.clone();
                 contents_mesh4.rotation.y += (3 * Math.PI) / 4;
-                nabe_group.add(contents_mesh4); // グループに追加
+                nabe_group.add(contents_mesh4);
             });
         });
-        
-        scene.add(nabe_group);
+        scene.add(nabe_group);//鍋のグループをシーンに追加
 
+        //ナイフ
         var knife_mesh; //読み込んだオブジェクトを格納する変数
-        var knife_x = 50;//ナイフの位置
-        var knife_y = -40;
-        var knife_z = -20;
         mtlLoader.setPath("knife/");	// MTLファイルへのパスを設定
 	    // MTLファイルの読み込み
         mtlLoader.load('knife.mtl', function(materials) {
@@ -234,12 +231,12 @@
             //OBJファイルの読み込み
             objLoader.load('knife.obj', function(object) {
                 object.scale.set(5, 5, 5);	// スケール変更
-                object.position.set(knife_x, knife_y+40, knife_z+100);
                 knife_mesh = object;          //変数に読み込んだオブジェクトを格納
                 scene.add(knife_mesh);		// グループに追加
             });
         });
 
+        //まな板
         var board_mesh; //読み込んだオブジェクトを格納する変数
         var board_x = -50;//まな板の位置
         var board_y = -10;
@@ -260,6 +257,7 @@
             });
         });
 
+        //千切りする前の玉キャベツ
         var kyabetu_mesh; //読み込んだオブジェクトを格納する変数
         mtlLoader.setPath("kyabetu/");	// MTLファイルへのパスを設定
 	    // MTLファイルの読み込み
@@ -277,6 +275,7 @@
             });
         });
 
+        //千切りしたキャベツ
         var kyabetu_mesh2; //読み込んだオブジェクトを格納する変数
         // MTLファイルの読み込み
         mtlLoader.load('kyabetu2.mtl', function(materials) {
@@ -293,6 +292,7 @@
             });
         });
 
+        //千切りしたキャベツの山
         var kyabetu_mesh3; //読み込んだオブジェクトを格納する変数
         // MTLファイルの読み込み
         mtlLoader.load('kyabetu3.mtl', function(materials) {
@@ -311,77 +311,79 @@
 
         // ここで制御変数を定義
         var controls = new function(){
-            this.boiling = 0.001;
+            this.boiling_speed = 0.001;//鍋が沸騰するスピード
+            this.knife_speed = 0.1;//ナイフの食材を切るスピード
+            this.moveSpeed = 1;//移動スピード
         }
 
-        //GUI
+        //GUIについての記述
         var gui = new dat.GUI();//dat.GUIオブジェクトの作成
 
-        var nabeFolder = gui.addFolder("nabe"); //sphereというフォルダを作成
-        //nabeフォルダ内に0~1の間で変数eの値を変更する
-        nabeFolder.add(controls, "boiling", 0.000, 0.050);
+        var nabeFolder = gui.addFolder("nabe"); //nabeフォルダの作成
+        nabeFolder.add(controls, "boiling_speed", 0.0000, 0.0500);//スライダーの作成
+        var knifeFolder = gui.addFolder("knife"); //knifeフォルダの作成
+        knifeFolder.add(controls, "knife_speed", 0.0000, 0.500);//スライダーの作成
+        var moveFolder = gui.addFolder("move"); //moveフォルダの作成
+        moveFolder.add(controls, "moveSpeed", 0.5, 5);//スライダーの作成
 
         //操作用変数
-        var step = 0;
-        const thresholdDistance = 50;
+        var boiling_step = 0;//沸騰操作のために加算するための変数
+        var knife_step = 0;//ナイフの切る動作のための加算するための変数
+        const thresholdDistance = 50;//キャベツを切る動作を実行する時のナイフとキャベツの距離の絶対値を決める変数
         renderScene();
         function renderScene() {
             stats.update();
-            moveCamera(); // カメラを移動
-            moveKnife();// ナイフを移動
+            moveCamera(); // カメラを移動させる関数
+            moveKnife();// ナイフを移動ナイフを移動させる関数
 
-            //千切り
+            //千切りに関する記述
             if (knife_mesh && kyabetu_mesh) {
                 const distance = knife_mesh.position.distanceTo(kyabetu_mesh.position);
                 if(distance <= thresholdDistance){
                     if (keys['e']) {
-                        kyabetu_mesh2.scale.x += 0.05;
-                        kyabetu_mesh2.scale.y += 0.1;
-                        kyabetu_mesh2.scale.z += 0.05;
-                        kyabetu_mesh3.scale.x += 0.2;
-                        kyabetu_mesh3.scale.y += 0.2;
-                        kyabetu_mesh3.scale.z += 0.2;
+                        knife_step += controls.knife_speed;
+                        knife_mesh.position.y -= 15 + ( 10 * Math.abs(Math.sin(knife_step)));//食材を切る動作
+                        //千切りキャベツとキャベツの山を大きくする記述
+                        kyabetu_mesh2.scale.x += 0.05*controls.knife_speed*10;
+                        kyabetu_mesh2.scale.y += 0.1*controls.knife_speed*10;
+                        kyabetu_mesh2.scale.z += 0.05*controls.knife_speed*10;
+                        kyabetu_mesh3.scale.addScalar(0.2*controls.knife_speed*10);
                         if(kyabetu_mesh2.scale.y > 25){
-                            kyabetu_mesh2.scale.x = 0;
-                            kyabetu_mesh2.scale.y = 0;
-                            kyabetu_mesh2.scale.z = 0;
+                            kyabetu_mesh2.scale.set(0, 0, 0);//千切りキャベツを消滅させる記述
                         }
+                    }
+                }else{
+                    if (keys['e']) {
+                        knife_mesh.position.y -= 20;
                     }
                 }
             }
 
-            //沸騰
+            //沸騰に関する記述
+            boiling_step += controls.boiling_speed;
             if (contents_mesh1) {
-                step += controls.boiling;
-                contents_mesh1.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
+                contents_mesh1.position.y = 2 + ( 10 * Math.abs(Math.sin(boiling_step)));
             }
             if (contents_mesh2) {
-                step += controls.boiling;
-                contents_mesh2.position.y = 2 + ( 10 * Math.abs(Math.sin(step + Math.PI / 4)));
+                contents_mesh2.position.y = 2 + ( 10 * Math.abs(Math.sin(boiling_step + Math.PI / 4)));
             }
             if (contents_mesh3) {
-                step += controls.boiling;
-                contents_mesh3.position.y = 2 + ( 10 * Math.abs(Math.sin(step + Math.PI / 2)));
+                contents_mesh3.position.y = 2 + ( 10 * Math.abs(Math.sin(boiling_step + Math.PI / 2)));
             }
             if (contents_mesh4) {
-                step += controls.boiling;
-                contents_mesh4.position.y = 2 + ( 10 * Math.abs(Math.sin(step + (3 * Math.PI) / 4)));
+                contents_mesh4.position.y = 2 + ( 10 * Math.abs(Math.sin(boiling_step + (3 * Math.PI) / 4)));
             }
             requestAnimationFrame(renderScene);
             webGLRenderer.render(scene, camera);
         }
 
         function initStats() {
-
             var stats = new Stats();
             stats.setMode(0); // 0: fps, 1: ms
-
             stats.domElement.style.position = 'absolute';
             stats.domElement.style.left = '0px';
             stats.domElement.style.top = '0px';
-
             document.getElementById("Stats-output").appendChild(stats.domElement);
-
             return stats;
         }
     }
